@@ -90,38 +90,65 @@ def move_west(world:GridWorld, robby_row:int, robby_col:int):
         world.moveRobby(new_row, new_col)
         return True
     
-def greedy_move(world:GridWorld, robby_row:int, robby_col:int, current_state:str):
-    print(current_state)
-    if current_state[0] == "C":
-        pick_up_can(world, robby_row, robby_col)
-    elif current_state[1] == "C":
-        if move_north(world, robby_row, robby_col):
-            robby_row -= 1
-    elif current_state[2] == "C":
-        if move_east(world, robby_row, robby_col):
-            robby_col += 1
-    elif current_state[3] == "C":
-        if move_south(world, robby_row, robby_col):
-            robby_row += 1
-    elif current_state[4] == "C":
-        if move_west(world, robby_row, robby_col):
-            robby_col -= 1
-            
-    else:
-        move = randint(0, 3)
-        if move == 0:
-            if move_north(world, robby_row, robby_col): 
-                robby_row -= 1
-        elif move == 1:
-            if move_east(world, robby_row, robby_col):
-                robby_col += 1
-        elif move == 2:
-            if move_south(world, robby_row, robby_col):
-                robby_row += 1
+def greedy_move(world:GridWorld, robby_row:int, robby_col:int, action:int):
+    action_performed = None
+    if action == 0:
+        if pick_up_can(world, robby_row, robby_col):
+            action_performed = 'P'
         else:
-            if move_west(world, robby_row, robby_col):
-                robby_col -= 1
-    return robby_row, robby_col
+            action_performed = 'M'
+    elif action == 1:
+        if move_north(world, robby_row, robby_col):
+            action_performed = 'N'
+            robby_row -= 1
+        else:
+            action_performed = 'F'
+    elif action == 2:
+        if move_east(world, robby_row, robby_col):
+            action_performed = 'E'
+            robby_col += 1
+        else:
+            action_performed = 'F'
+    elif action == 3:
+        if move_south(world, robby_row, robby_col):
+            action_performed = 'S'
+            robby_row += 1
+        else:
+            action_performed = 'F'
+    elif action == 4:
+        if move_west(world, robby_row, robby_col):
+            action_performed = 'W'
+            robby_col -= 1
+        else:
+            action_performed = 'F'
+    return robby_row, robby_col, action_performed
+
+def select_greedy_move(current_state, Q_matrix, all_states):
+    q_index = all_states[current_state]
+    best_score = max(Q_matrix[q_index])
+    if best_score != 0:
+        action = Q_matrix[q_index].index(best_score)
+        
+    else: 
+        action = randint(0, 4)
+    return best_score, action   
+    
+
+def generate_Q_matrix(all_states, current_state, Q_matrix):
+    if current_state not in all_states:
+        all_states[current_state] = len(all_states)
+        Q_matrix.append([0, 0, 0, 0, 0])
+        return True
+    else:
+        return False
+def get_current_Q_value(Q_matrix, all_states, current_state, action_index):
+    q_index = all_states[current_state]
+    return Q_matrix[q_index][action_index]
+
+def update_Q_matrix(Q_matrix, all_states, current_state, action_index, updated_Q):
+    Q_matrix[all_states[current_state]][action_index] = updated_Q
+    return Q_matrix 
+
     
 robby_row = randint(0, 9)
 robby_col = randint(0, 9)
@@ -131,11 +158,53 @@ world.display_grid_world()
 current_state = get_current_state(world, robby_row, robby_col)
 print(current_state)
 
-M = 20
-while M > 0:
-    current_state = get_current_state(world, robby_row, robby_col)
-    robby_row, robby_col = greedy_move(world, robby_row, robby_col, current_state)
-    world.display_grid_world()
-    print((20 - M))
-    M -= 1
+Q_matrix = []
+all_states = {}
 
+episodes_N = 500
+steps_M = 200
+step_size = 0.2
+discount_factor = 0.9
+epsilon = 0.1
+
+while episodes_N > 0:
+    while steps_M > 0:
+        #get the current state
+        current_state = get_current_state(world, robby_row, robby_col)
+        generate_Q_matrix(all_states, current_state, Q_matrix)
+        
+        # identify the best next action
+        maxA, action_index = select_greedy_move(current_state, Q_matrix, all_states)
+        robby_row, robby_col, action = greedy_move(world, robby_row, robby_col, action_index)
+        max_state = get_current_state(world, robby_row, robby_col)
+        generate_Q_matrix(all_states, max_state, Q_matrix)
+        
+        # Pick up can
+        if action == 'P':
+            reward = 10
+        # Hit wall
+        elif action == 'F':
+            reward = -5
+        # Pick up can in empty square
+        elif action == 'M':
+            reward = -1
+        else:
+            reward = 0     
+        
+        current_Q = get_current_Q_value(Q_matrix, all_states, current_state, action_index)
+        max_Q = get_current_Q_value(Q_matrix, all_states, max_state,action_index)
+        
+        updated_Q = current_Q + step_size * (reward + discount_factor * max_Q - current_Q)
+            
+        Q_matrix = update_Q_matrix(Q_matrix, all_states, current_state, action_index, updated_Q)
+        
+        #world.display_grid_world()
+        print((200 - steps_M))
+        steps_M -= 1
+    steps_M = 200
+    episodes_N -= 1
+
+print(f'All states: {all_states}, \n Q_matrix: {Q_matrix}')
+Q_matrix[all_states[current_state]][2] = 9
+
+print(f'All states: {all_states}, \n Q_matrix: {Q_matrix}')
