@@ -123,15 +123,22 @@ def greedy_move(world:GridWorld, robby_row:int, robby_col:int, action:int):
             action_performed = 'F'
     return robby_row, robby_col, action_performed
 
-def select_greedy_move(current_state, Q_matrix, all_states):
-    q_index = all_states[current_state]
-    best_score = max(Q_matrix[q_index])
-    if best_score != 0:
-        action = Q_matrix[q_index].index(best_score)
-        
-    else: 
-        action = randint(0, 4)
-    return best_score, action   
+def select_greedy_move(current_state, Q_matrix, all_states, epsilon):
+   
+    chosen_action = None
+    
+    #epsilon is the probability of a random move.
+    probability_dice = randint(0, 100)
+    if probability_dice < (epsilon * 100):
+        chosen_action = randint(0, 4)
+        best_score = Q_matrix[all_states[current_state]][chosen_action]
+    else:
+        q_index = all_states[current_state]
+        best_score = max(Q_matrix[q_index])
+        chosen_action = Q_matrix[q_index].index(best_score)
+
+    #print(f'action chosen: {action}')
+    return best_score, chosen_action  
     
 
 def generate_Q_matrix(all_states, current_state, Q_matrix):
@@ -149,32 +156,38 @@ def update_Q_matrix(Q_matrix, all_states, current_state, action_index, updated_Q
     Q_matrix[all_states[current_state]][action_index] = updated_Q
     return Q_matrix 
 
-    
-robby_row = randint(0, 9)
-robby_col = randint(0, 9)
-world = GridWorld(10, 10, robby_row, robby_col)
-world.display_grid_world()
+def display_Q_matrix(Q_matrix, all_states):
+    for i in range(len(Q_matrix)):
+        print(f'Q-values: {Q_matrix[i]}')
  
-current_state = get_current_state(world, robby_row, robby_col)
-print(current_state)
+#current_state = get_current_state(world, robby_row, robby_col)
+#print(current_state)
 
 Q_matrix = []
 all_states = {}
+reward_matrix = []
 
-episodes_N = 500
-steps_M = 200
+episodes_N = 1
+steps_M = 20
 step_size = 0.2
 discount_factor = 0.9
 epsilon = 0.1
 
 while episodes_N > 0:
+    robby_row = randint(0, 9)
+    robby_col = randint(0, 9)
+    world = GridWorld(10, 10, robby_row, robby_col)
+    world.display_grid_world()
+    total_reward = 0
+    
     while steps_M > 0:
+        
         #get the current state
         current_state = get_current_state(world, robby_row, robby_col)
         generate_Q_matrix(all_states, current_state, Q_matrix)
         
         # identify the best next action
-        maxA, action_index = select_greedy_move(current_state, Q_matrix, all_states)
+        maxA, action_index = select_greedy_move(current_state, Q_matrix, all_states, epsilon)
         robby_row, robby_col, action = greedy_move(world, robby_row, robby_col, action_index)
         max_state = get_current_state(world, robby_row, robby_col)
         generate_Q_matrix(all_states, max_state, Q_matrix)
@@ -192,19 +205,23 @@ while episodes_N > 0:
             reward = 0     
         
         current_Q = get_current_Q_value(Q_matrix, all_states, current_state, action_index)
-        max_Q = get_current_Q_value(Q_matrix, all_states, max_state,action_index)
+        max_Q = get_current_Q_value(Q_matrix, all_states, max_state, action_index)
         
-        updated_Q = current_Q + step_size * (reward + discount_factor * max_Q - current_Q)
+        updated_Q = current_Q + (step_size * (reward + (discount_factor * max_Q) - current_Q))
             
         Q_matrix = update_Q_matrix(Q_matrix, all_states, current_state, action_index, updated_Q)
         
-        #world.display_grid_world()
-        print((200 - steps_M))
+        world.display_grid_world()
+        print((20 - steps_M), 'reward:', reward, 'Total reward:', total_reward, 'Current state:', current_state, 'Action:', action, 'current Q', current_Q, 'Max Q:', maxA, 'Updated Q:', updated_Q)
+        display_Q_matrix(Q_matrix, all_states)
+        print(f'All states: {all_states}, \n Reward matrix: {reward_matrix}') 
+        total_reward += reward
         steps_M -= 1
-    steps_M = 200
+    reward_matrix.append(total_reward)
+    steps_M = 20
     episodes_N -= 1
+    if episodes_N % 50 == 0:
+        epsilon -= 0.01
 
-print(f'All states: {all_states}, \n Q_matrix: {Q_matrix}')
-Q_matrix[all_states[current_state]][2] = 9
-
-print(f'All states: {all_states}, \n Q_matrix: {Q_matrix}')
+display_Q_matrix(Q_matrix, all_states)
+print(f'All states: {all_states}, \n Reward matrix: {reward_matrix}')
