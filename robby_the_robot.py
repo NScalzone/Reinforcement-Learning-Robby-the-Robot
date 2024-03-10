@@ -1,5 +1,7 @@
 from random import randint
+from matplotlib import pyplot
 from robot_board import GridWorld, Square
+
 
 def get_current_state(world:GridWorld, robby_row:int, robby_col:int):
     """
@@ -134,6 +136,10 @@ def select_greedy_move(current_state, Q_matrix, all_states, epsilon):
         best_score = Q_matrix[all_states[current_state]][chosen_action]
     else:
         q_index = all_states[current_state]
+      #  if (Q_matrix[q_index][0]) == (Q_matrix[q_index][1]) == (Q_matrix[q_index][2]) == (Q_matrix[q_index][3]) == (Q_matrix[q_index][4]) :
+       #     chosen_action = randint(0, 4)
+        #    best_score = Q_matrix[q_index][chosen_action]
+       # else:
         best_score = max(Q_matrix[q_index])
         chosen_action = Q_matrix[q_index].index(best_score)
 
@@ -158,7 +164,7 @@ def update_Q_matrix(Q_matrix, all_states, current_state, action_index, updated_Q
 
 def display_Q_matrix(Q_matrix, all_states):
     for i in range(len(Q_matrix)):
-        print(f'Q-values: {Q_matrix[i]}')
+        print(f'Q-values at index{i}: {Q_matrix[i]}')
  
 #current_state = get_current_state(world, robby_row, robby_col)
 #print(current_state)
@@ -167,8 +173,8 @@ Q_matrix = []
 all_states = {}
 reward_matrix = []
 
-episodes_N = 1
-steps_M = 20
+episodes_N = 5000
+steps_M = 200
 step_size = 0.2
 discount_factor = 0.9
 epsilon = 0.1
@@ -202,7 +208,7 @@ while episodes_N > 0:
         elif action == 'M':
             reward = -1
         else:
-            reward = 0     
+            reward = 0
         
         current_Q = get_current_Q_value(Q_matrix, all_states, current_state, action_index)
         max_Q = get_current_Q_value(Q_matrix, all_states, max_state, action_index)
@@ -211,17 +217,32 @@ while episodes_N > 0:
             
         Q_matrix = update_Q_matrix(Q_matrix, all_states, current_state, action_index, updated_Q)
         
-        world.display_grid_world()
-        print((20 - steps_M), 'reward:', reward, 'Total reward:', total_reward, 'Current state:', current_state, 'Action:', action, 'current Q', current_Q, 'Max Q:', maxA, 'Updated Q:', updated_Q)
-        display_Q_matrix(Q_matrix, all_states)
-        print(f'All states: {all_states}, \n Reward matrix: {reward_matrix}') 
+        #world.display_grid_world()
+        print((200 - steps_M), 'reward:', reward, 'Total reward:', total_reward, 'Current state:', current_state, 'Action:', action, 'current Q', current_Q, 'Max Q:', max_Q, 'Updated Q:', updated_Q)
+        #display_Q_matrix(Q_matrix, all_states)
+        #print(f'All states: {all_states}, \n Reward matrix: {reward_matrix}') 
         total_reward += reward
         steps_M -= 1
-    reward_matrix.append(total_reward)
-    steps_M = 20
+    if episodes_N % 100 == 0:
+        reward_matrix.append(total_reward)
+    steps_M = 200
     episodes_N -= 1
     if episodes_N % 50 == 0:
         epsilon -= 0.01
 
 display_Q_matrix(Q_matrix, all_states)
+
+with open('Q_matrix.txt', 'w') as f:
+    for i in range(len(Q_matrix)):
+        f.write(f'{Q_matrix[i]}\n')
 print(f'All states: {all_states}, \n Reward matrix: {reward_matrix}')
+
+with open('all_states.txt', 'w') as g:
+    for i in all_states:
+        g.write(f'{i}\n')
+
+x = [x for x in range(len(reward_matrix))]
+pyplot.plot(x, reward_matrix, label = "Total Reward")
+pyplot.title('Total Reward per Episode')
+pyplot.legend()
+pyplot.show()
